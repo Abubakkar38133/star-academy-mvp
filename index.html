@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      (function() {
+        // Fix for environments where window.fetch has only a getter
+        try {
+          var _fetch = window.fetch ? window.fetch.bind(window) : undefined;
+          Object.defineProperty(window, 'fetch', {
+            get: function() { return _fetch; },
+            set: function(val) { _fetch = val; },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (e1) {
+          try {
+            if (window.Window && window.Window.prototype) {
+              Object.defineProperty(window.Window.prototype, 'fetch', {
+                get: function() { return _fetch; },
+                set: function(val) { _fetch = val; },
+                configurable: true,
+                enumerable: true
+              });
+            }
+          } catch (e2) {}
+        }
+
+        // Suppress uncaught error if an external script/extension attempted to write to a getter-only fetch
+        window.addEventListener('error', function(event) {
+          if (event && event.message && event.message.indexOf('fetch') !== -1 && event.message.indexOf('only a getter') !== -1) {
+            event.preventDefault();
+            if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+            if (event.stopPropagation) event.stopPropagation();
+            return true;
+          }
+        }, true);
+
+        var prevOnError = window.onerror;
+        window.onerror = function(msg) {
+          if (typeof msg === 'string' && msg.indexOf('fetch') !== -1 && msg.indexOf('only a getter') !== -1) {
+            return true;
+          }
+          if (typeof prevOnError === 'function') {
+            return prevOnError.apply(this, arguments);
+          }
+        };
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#059669" />
+    <title>StarScholar: US Kids General Knowledge Academy (Ages 5-12)</title>
+    <meta name="description" content="Adaptive US History, Civics, STEM, Geography, and Math Quiz Academy for kids ages 5–12 with 3 age-scaled learning tiers and Parent Portfolio analytics." />
+    <meta property="og:title" content="StarScholar: US Kids General Knowledge Academy (Ages 5-12)" />
+    <meta property="og:description" content="Adaptive US History, Civics, STEM, Geography, and Math Quiz Academy for kids ages 5–12 with 3 age-scaled learning tiers and Parent Portfolio analytics." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&family=Outfit:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-slate-50 text-slate-900 font-['Nunito',system-ui,-apple-system,sans-serif] antialiased select-none overscroll-none touch-manipulation">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

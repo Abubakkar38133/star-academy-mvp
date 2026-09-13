@@ -1,0 +1,6 @@
+{
+  "name": "StarScholar: US Kids General Knowledge Academy (Ages 5-12)",
+  "description": "Adaptive US History, Civics, STEM, Geography, and Math Quiz Academy for kids ages 5–12 with 3 age-scaled learning tiers and Parent Portfolio analytics.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
