@@ -15,22 +15,34 @@ import {
 interface WelcomeScreenProps {
   currentTier: ComplexityTier;
   voiceEnabled: boolean;
+  unlockedLevel?: number;
+  playerName?: string;
   onStart: () => void;
   onChangeTier: (tier: ComplexityTier) => void;
   onToggleVoice: () => void;
   onOpenParentCorner: () => void;
   onOpenPlayroom?: () => void;
+  onResetToScratch?: () => void;
 }
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   currentTier,
   voiceEnabled,
+  unlockedLevel = 1,
+  playerName,
   onStart,
   onChangeTier,
   onToggleVoice,
   onOpenParentCorner,
   onOpenPlayroom,
+  onResetToScratch,
 }) => {
+  const isReturningUser = unlockedLevel > 1;
+  const bubbleGreeting = isReturningUser
+    ? playerName
+      ? `Welcome back, ${playerName}! Ready for Level ${unlockedLevel}?`
+      : `Welcome back! Continue at Level ${unlockedLevel}?`
+    : 'Hi! Tap Start to play from Level 1!';
   return (
     <div className="flex flex-col items-center justify-between min-h-full w-full p-4 sm:p-6 bg-slate-50 text-center select-none relative overflow-y-auto scroll-touch">
       {/* Top Utility Controls */}
@@ -87,7 +99,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           <MascotBuddy
             size="md"
             mood="happy"
-            speechBubbleText="Hi! Tap Start to play!"
+            speechBubbleText={bubbleGreeting}
             showControls={false}
             interactive={true}
           />
@@ -107,7 +119,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
         {/* Tactile 3D Action Buttons (Reverse-Engineered Duolingo Physics) */}
         <div className="w-full space-y-3 pt-1">
-          {/* 1. Hero Start Button */}
+          {/* 1. Hero Start/Continue Button */}
           <button
             type="button"
             onClick={() => {
@@ -119,7 +131,9 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
               <Play className="w-4 h-4 text-white fill-white ml-0.5" />
             </div>
-            <span>START GAME</span>
+            <span>
+              {isReturningUser ? `CONTINUE (LEVEL ${unlockedLevel})` : 'START GAME (LEVEL 1)'}
+            </span>
           </button>
 
           {/* 2. Secondary Owl Playroom */}
@@ -134,6 +148,21 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             >
               <Mic className="w-4 h-4 text-amber-600" />
               <span>Talk with Owl</span>
+            </button>
+          )}
+
+          {/* Quick reset to scratch for testing or new sibling */}
+          {isReturningUser && onResetToScratch && (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('Start over from Level 1 from scratch? This will clear saved progress.')) {
+                  onResetToScratch();
+                }
+              }}
+              className="w-full py-2 text-[11px] font-bold text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+            >
+              Start Over from Scratch (Level 1)
             </button>
           )}
         </div>

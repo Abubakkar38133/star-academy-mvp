@@ -182,6 +182,8 @@ export default function App() {
         <WelcomeScreen
           currentTier={data.tier}
           voiceEnabled={data.voiceEnabled}
+          unlockedLevel={data.unlockedLevel || 1}
+          playerName={data.name}
           onStart={handleStartGame}
           onChangeTier={handleChangeTier}
           onToggleVoice={handleToggleVoice}
@@ -190,6 +192,7 @@ export default function App() {
             setScreen('hub');
             setActiveTab('buddy');
           }}
+          onResetToScratch={handleResetProgress}
         />
       )}
 

@@ -1,14 +1,21 @@
 import { SaveData, ComplexityTier, QuizResultLog } from '../types';
 
-const STORAGE_KEY = 'starscholar_academy_save_v1';
-const LEGACY_STORAGE_KEY = 'pips_learning_world_v3';
+// Storage keys
+const STORAGE_KEY = 'starscholar_academy_save_v2';
+const COOKIE_KEY = 'starscholar_save_v2';
+const LEGACY_STORAGE_KEYS = ['starscholar_academy_save_v1', 'pips_learning_world_v3'];
 
-const DEFAULT_DATA: SaveData = {
-  done: [0, 1], // Start with 2 completed stops so parents see immediate data
-  completedCount: 2,
-  coins: 15,
-  name: 'Leo',
-  certs: [1],
+/**
+ * Clean baseline state for any new user visiting the app.
+ * A new user starts 100% from scratch at Level 1 with no pre-completed levels,
+ * 0 coins, and an empty academic record.
+ */
+export const DEFAULT_DATA: SaveData = {
+  done: [],
+  completedCount: 0,
+  coins: 0,
+  name: '',
+  certs: [],
   energyMs: 0,
   stamp: Date.now(),
   tier: 'explorer', // Explorer is balanced for ages 8-10
@@ -19,121 +26,82 @@ const DEFAULT_DATA: SaveData = {
   childAge: 8,
   childGrade: '3rd Grade',
   avatarEmoji: 'scholar',
-  dailyStreak: 2,
+  dailyStreak: 1,
   lastDailyDate: new Date().toISOString().split('T')[0],
-  unlockedBadges: ['first_quiz'],
-  badges: ['first_quiz'],
-  factsDiscovered: ['fact_1', 'fact_2'],
-  unlockedLevel: 3,
-  levelProgress: {
-    1: {
-      levelNumber: 1,
-      stars: 3,
-      score: 5,
-      total: 5,
-      completedAt: Date.now() - 3600 * 1000 * 3,
-    },
-    2: {
-      levelNumber: 2,
-      stars: 2,
-      score: 4,
-      total: 5,
-      completedAt: Date.now() - 3600 * 1000 * 1,
-    },
-  },
-  quizLogs: [
-    {
-      id: 'log_seed_1',
-      timestamp: Date.now() - 3600 * 1000 * 4,
-      title: 'Space Exploration Sprint',
-      category: 'space',
-      tier: 'explorer',
-      score: 4,
-      total: 5,
-      percentage: 80,
-      timeSpentSeconds: 95,
-      reviews: [
-        {
-          question: 'Which is the largest planet in our solar system?',
-          options: ['Saturn', 'Jupiter', 'Earth', 'Neptune'],
-          chosenIndex: 1,
-          correctIndex: 1,
-          isCorrect: true,
-          explanation: 'Jupiter is the massive king of planets!',
-        },
-        {
-          question: 'What is the name of our home galaxy?',
-          options: ['Andromeda', 'The Milky Way', 'Whirlpool Galaxy', 'Solar Galaxy'],
-          chosenIndex: 1,
-          correctIndex: 1,
-          isCorrect: true,
-          explanation: 'The Milky Way Galaxy.',
-        },
-        {
-          question: 'Which star gives warmth and light to Earth?',
-          options: ['The Moon', 'The Sun', 'Mars', 'The North Star'],
-          chosenIndex: 1,
-          correctIndex: 1,
-          isCorrect: true,
-          explanation: 'The Sun.',
-        },
-        {
-          question: 'Which planet is known as the Red Planet?',
-          options: ['Jupiter', 'Earth', 'Mars', 'Venus'],
-          chosenIndex: 2,
-          correctIndex: 2,
-          isCorrect: true,
-          explanation: 'Mars has iron oxide rocks on its surface.',
-        },
-        {
-          question: 'Which planet rotates sideways?',
-          options: ['Mars', 'Saturn', 'Uranus', 'Mercury'],
-          chosenIndex: 1,
-          correctIndex: 2,
-          isCorrect: false,
-          explanation: 'Uranus rotates tilted on its side at 98 degrees.',
-        },
-      ],
-    },
-    {
-      id: 'log_seed_2',
-      timestamp: Date.now() - 3600 * 1000 * 24,
-      title: 'Wildlife & Nature Explorer',
-      category: 'animals',
-      tier: 'explorer',
-      score: 3,
-      total: 3,
-      percentage: 100,
-      timeSpentSeconds: 62,
-      reviews: [
-        {
-          question: 'What is the largest living mammal on Earth?',
-          options: ['African Elephant', 'Blue Whale', 'Colossal Squid', 'Giraffe'],
-          chosenIndex: 1,
-          correctIndex: 1,
-          isCorrect: true,
-          explanation: 'Blue Whale is larger than any dinosaur!',
-        },
-        {
-          question: 'How many hearts does an octopus have?',
-          options: ['1 heart', '2 hearts', '3 hearts', '4 hearts'],
-          chosenIndex: 2,
-          correctIndex: 2,
-          isCorrect: true,
-          explanation: '3 hearts circulate blood in octopuses.',
-        },
-        {
-          question: 'What is the tallest living land animal?',
-          options: ['Elephant', 'Giraffe', 'Kangaroo', 'Horse'],
-          chosenIndex: 1,
-          correctIndex: 1,
-          isCorrect: true,
-          explanation: 'Giraffe can reach up to 19 feet.',
-        },
-      ],
-    },
-  ],
+  unlockedBadges: [],
+  badges: [],
+  factsDiscovered: [],
+  unlockedLevel: 1, // Fresh players start at Level 1!
+  levelProgress: {}, // No pre-completed levels!
+  quizLogs: [],
 };
+
+/**
+ * Safely read a cookie by name from document.cookie
+ */
+function readCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  try {
+    const cookies = document.cookie ? document.cookie.split('; ') : [];
+    for (const c of cookies) {
+      const idx = c.indexOf('=');
+      if (idx > -1) {
+        const key = decodeURIComponent(c.substring(0, idx).trim());
+        if (key === name) {
+          return decodeURIComponent(c.substring(idx + 1));
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+/**
+ * Safely write a cookie with 1-year expiry and SameSite=Lax
+ */
+function writeCookie(name: string, value: string, days = 365) {
+  if (typeof document === 'undefined') return;
+  try {
+    const d = new Date();
+    d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
+    const expires = 'expires=' + d.toUTCString();
+    document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}; ${expires}; path=/; SameSite=Lax`;
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Compact save payload for cookies to adhere strictly to browser 4KB cookie quotas
+ */
+function saveToCookie(data: SaveData) {
+  try {
+    const compact = {
+      unlockedLevel: data.unlockedLevel || 1,
+      levelProgress: data.levelProgress || {},
+      coins: data.coins || 0,
+      tier: data.tier || 'explorer',
+      name: data.name || '',
+      dailyStreak: data.dailyStreak || 1,
+      lastDailyDate: data.lastDailyDate || '',
+      badges: data.badges || [],
+      certs: data.certs || [],
+      stamp: data.stamp || Date.now(),
+      sessionLimitMinutes: data.sessionLimitMinutes ?? 25,
+      voiceEnabled: data.voiceEnabled ?? true,
+      soundEnabled: data.soundEnabled ?? true,
+      speechRate: data.speechRate ?? 0.88,
+      childAge: data.childAge ?? 8,
+      childGrade: data.childGrade ?? '3rd Grade',
+      avatarEmoji: data.avatarEmoji ?? 'scholar',
+    };
+    writeCookie(COOKIE_KEY, JSON.stringify(compact));
+  } catch {
+    // ignore
+  }
+}
 
 class StorageService {
   private mem: SaveData = { ...DEFAULT_DATA };
@@ -161,6 +129,8 @@ class StorageService {
     } else if (patch.badges && !patch.unlockedBadges) {
       this.mem.unlockedBadges = patch.badges;
     }
+
+    // 1. Persist to browser localStorage (Cache)
     if (this.canUseStorage) {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.mem));
@@ -168,48 +138,115 @@ class StorageService {
         // ignore
       }
     }
+
+    // 2. Persist to browser Cookies (Redundant Cross-Session Recovery)
+    saveToCookie(this.mem);
+
     return this.mem;
   }
 
   public load(): SaveData {
-    if (!this.canUseStorage) return this.mem;
-    try {
-      let raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) {
-        raw = localStorage.getItem(LEGACY_STORAGE_KEY);
-        if (raw) {
-          try {
-            // Migrate to new storage key
-            localStorage.setItem(STORAGE_KEY, raw);
-            localStorage.removeItem(LEGACY_STORAGE_KEY);
-          } catch {
-            // ignore
+    let loadedData: Partial<SaveData> | null = null;
+
+    // 1. Try reading primary save from localStorage
+    if (this.canUseStorage) {
+      try {
+        const rawLs = localStorage.getItem(STORAGE_KEY);
+        if (rawLs) {
+          loadedData = JSON.parse(rawLs);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    // 2. Fallback: check browser cookies if localStorage is empty or blocked
+    if (!loadedData) {
+      try {
+        const rawCookie = readCookie(COOKIE_KEY);
+        if (rawCookie) {
+          loadedData = JSON.parse(rawCookie);
+          // Resync into localStorage so both caches are aligned
+          if (this.canUseStorage && loadedData) {
+            try {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(loadedData));
+            } catch {
+              // ignore
+            }
           }
         }
+      } catch {
+        // ignore
       }
-
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        this.mem = { ...DEFAULT_DATA, ...parsed };
-        if (!this.mem.badges && this.mem.unlockedBadges) {
-          this.mem.badges = this.mem.unlockedBadges;
-        }
-        if (!this.mem.unlockedBadges && this.mem.badges) {
-          this.mem.unlockedBadges = this.mem.badges;
-        }
-        if (this.mem.completedCount === undefined) {
-          this.mem.completedCount = this.mem.done ? this.mem.done.length : 2;
-        }
-        if (!this.mem.levelProgress) {
-          this.mem.levelProgress = { ...DEFAULT_DATA.levelProgress };
-        }
-        if (typeof this.mem.unlockedLevel !== 'number' || isNaN(this.mem.unlockedLevel) || this.mem.unlockedLevel < 1) {
-          this.mem.unlockedLevel = 1;
-        }
-      }
-    } catch {
-      this.mem = { ...DEFAULT_DATA };
     }
+
+    // 3. Check legacy storage keys if this is a returning player from v1
+    if (!loadedData && this.canUseStorage) {
+      for (const legacyKey of LEGACY_STORAGE_KEYS) {
+        try {
+          const rawLegacy = localStorage.getItem(legacyKey);
+          if (rawLegacy) {
+            const parsed = JSON.parse(rawLegacy);
+            // Check if this was the developer mock seed (unlockedLevel: 3, Leo, log_seed_1)
+            const isOldMockSeed =
+              parsed.unlockedLevel === 3 &&
+              (parsed.name === 'Leo' || rawLegacy.includes('log_seed_1')) &&
+              (!parsed.levelProgress || Object.keys(parsed.levelProgress).length <= 2);
+
+            if (!isOldMockSeed) {
+              // Genuine player progress from an earlier release — migrate it!
+              loadedData = parsed;
+            }
+            // Clean up old legacy key
+            try {
+              localStorage.removeItem(legacyKey);
+            } catch {
+              // ignore
+            }
+            break;
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    // 4. If this is a brand new player with no prior save:
+    // They start 100% from scratch at Level 1!
+    if (!loadedData) {
+      this.mem = { ...DEFAULT_DATA };
+      // Save this fresh state so this user's browser now has their personal save initialized
+      if (this.canUseStorage) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(this.mem));
+        } catch {
+          // ignore
+        }
+      }
+      saveToCookie(this.mem);
+      return this.mem;
+    }
+
+    // Reconstruct valid SaveData state from loaded snapshot
+    const validatedUnlockedLevel =
+      typeof loadedData.unlockedLevel === 'number' &&
+      !isNaN(loadedData.unlockedLevel) &&
+      loadedData.unlockedLevel >= 1
+        ? loadedData.unlockedLevel
+        : 1;
+
+    this.mem = {
+      ...DEFAULT_DATA,
+      ...loadedData,
+      unlockedLevel: validatedUnlockedLevel,
+      levelProgress: loadedData.levelProgress || {},
+      quizLogs: loadedData.quizLogs || [],
+      badges: loadedData.badges || loadedData.unlockedBadges || [],
+      unlockedBadges: loadedData.unlockedBadges || loadedData.badges || [],
+      done: loadedData.done || [],
+      certs: loadedData.certs || [],
+    };
+
     return this.mem;
   }
 
@@ -312,11 +349,20 @@ class StorageService {
       tier: this.mem.tier,
       voiceEnabled: this.mem.voiceEnabled,
       soundEnabled: this.mem.soundEnabled,
+      speechRate: this.mem.speechRate,
+      sessionLimitMinutes: this.mem.sessionLimitMinutes,
+      unlockedLevel: 1, // Reset to Level 1 from scratch
+      levelProgress: {}, // Wipe all completed levels
       quizLogs: [],
       done: [],
-      coins: 5,
+      completedCount: 0,
+      coins: 0,
       certs: [],
       unlockedBadges: [],
+      badges: [],
+      factsDiscovered: [],
+      dailyStreak: 1,
+      lastDailyDate: new Date().toISOString().split('T')[0],
     };
     if (this.canUseStorage) {
       try {
@@ -325,6 +371,7 @@ class StorageService {
         // ignore
       }
     }
+    saveToCookie(this.mem);
     return this.mem;
   }
 
